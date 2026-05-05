@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>awas ada lolok</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/ml5@0.12.2/dist/ml5.min.js"></script>
+    <style>
+        body { 
+            margin: 0; background: #000; color: white; font-family: sans-serif; 
+            display: flex; flex-direction: column; align-items: center; justify-content: center; 
+            height: 100vh; overflow: hidden; 
+        }
+        #canvas-container { border: 5px solid #222; border-radius: 10px; position: relative; }
+        #btn-start { 
+            padding: 15px 40px; font-size: 20px; cursor: pointer; background: #333; 
+            color: white; border: 1px solid #555; border-radius: 50px; font-weight: bold; 
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <button id="btn-start">start</button>
+    <div id="canvas-container"></div>
+
+    <script>
+        let video;
+        let poseNet;
+        let noseX = 200;
+        let modelReady = false;
+        let playerX = 200;
+        let score = 0;
+        let obstacles = [];
+        let isGameOver = false;
+
+        // Gambar Jumpscare
+        let imgHantu;
+
+        function preload() {
+            // Pastikan file gambar ini ada di folder yang sama ya Lan!
+            imgHantu = loadImage('download (1).jpg'); 
+        }
+
+        function setup() {
+            let cnv = createCanvas(400, 500);
+            cnv.parent('canvas-container');
+            noLoop(); 
+        }
+
+        document.getElementById('btn-start').onclick = function() {
+            this.style.display = 'none';
+            video = createCapture(VIDEO, function() {
+                poseNet = ml5.poseNet(video, { flipHorizontal: true }, () => {
+                    modelReady = true;
+                });
+
+                poseNet.on('pose', (results) => {
+                    if (results.length > 0) {
+                        let nx = results[0].pose.nose.x;
+                        noseX = map(nx, 0, video.width, 0, width);
+                    }
+                });
+                loop();
+            });
+            video.size(400, 500);
+            video.hide();
+        };
+
+        function draw() {
+            background(0);
+
+            // Feed Kamera
+            if (video && !isGameOver) {
+                push();
+                translate(width, 0);
+                scale(-1, 1);
+                image(video, 0, 0, width, height);
+                pop();
+            }
+
+            if (!modelReady) {
+                fill(255);
+                textAlign(CENTER);
+                text("loading", width/2, height/2);
+                return;
+            }
+
+            if (isGameOver) {
+                // TAMPILKAN JUMPSCARE (TANPA SUARA)
+                image(imgHantu, 0, 0, width, height);
+                
+                fill(255, 0, 0);
+                textSize(50);
+                textAlign(CENTER);
+                text("bakekok", width/2, height - 50);
+                return;
+            }
+
+            // Gerakan Player (Kotak Hijau)
+            playerX = lerp(playerX, noseX, 0.2); 
+            fill(0, 255, 100);
+            stroke(255);
+            rectMode(CENTER);
+            rect(playerX, height - 50, 50, 50, 10); 
+
+            // Balok Merah
+            if (frameCount % 40 == 0) {
+                obstacles.push({ x: random(30, width-30), y: -30, s: random(30, 60) });
+            }
+
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                obstacles[i].y += 5 + (score * 0.1); 
+                fill(255, 0, 0);
+                noStroke();
+                rect(obstacles[i].x, obstacles[i].y, obstacles[i].s, obstacles[i].s, 5);
+
+                // Cek Tabrakan
+                let d = dist(playerX, height-50, obstacles[i].x, obstacles[i].y);
+                if (d < (25 + obstacles[i].size/2 || 40)) { // Toleransi tabrakan
+                    if (d < 40) isGameOver = true;
+                }
+
+                if (obstacles[i].y > height + 50) {
+                    obstacles.splice(i, 1);
+                    score++;
+                }
+            }
+
+            fill(255);
+            textSize(20);
+            text("Score: " + score, 20, 30);
+        }
+
+        function mousePressed() {
+            if (isGameOver) {
+                isGameOver = false;
+                score = 0;
+                obstacles = [];
+                loop();
+            }
+        }
+    </script>
+</body>
+</html>
